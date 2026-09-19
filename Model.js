@@ -1,39 +1,103 @@
-// weather.json holds {"name": ..., "latitude": ..., "longitude": ...} (see
-// omarchy-weather-location, which owns the format). Missing, blank, or
-// unparseable means the location is auto-detected from the IP address.
-function parseLocationFile(raw) {
-  var unset = { name: "", latitude: null, longitude: null }
+function emptyLocation() {
+  return { name: "", latitude: null, longitude: null }
+}
+
+function parseSavedLocation(raw) {
   try {
     var data = JSON.parse(String(raw || ""))
-    if (!data || typeof data !== "object") return unset
+    if (!data || typeof data !== "object") return emptyLocation()
 
-    var latitude = parseFloat(data.latitude)
-    var longitude = parseFloat(data.longitude)
-    var hasCoordinates = !isNaN(latitude) && !isNaN(longitude)
-    return {
+    var location = {
       name: typeof data.name === "string" ? data.name.replace(/^\s+|\s+$/g, "") : "",
-      latitude: hasCoordinates ? latitude : null,
-      longitude: hasCoordinates ? longitude : null
+      latitude: parseFloat(data.latitude),
+      longitude: parseFloat(data.longitude)
     }
+    if (!hasCoordinates(location)) {
+      location.latitude = null
+      location.longitude = null
+    }
+    return location
   } catch (e) {
-    return unset
+    return emptyLocation()
   }
 }
 
-// wttr.in path segment for a configured location: exact coordinates when
-// both are present, the URL-encoded name as a fallback (hand-edited
-// weather.loc files may only carry a name), empty for IP auto-detect.
-function wttrLocationQuery(location, latitude, longitude) {
-  var lat = parseFloat(String(latitude))
-  var lon = parseFloat(String(longitude))
-  if (!isNaN(lat) && !isNaN(lon)) return lat + "," + lon
+function hasCoordinates(location) {
+  return !!location
+    && !isNaN(parseFloat(String(location.latitude)))
+    && !isNaN(parseFloat(String(location.longitude)))
+}
 
-  var name = String(location || "").replace(/^\s+|\s+$/g, "")
+function locationQuery(location) {
+  location = location || emptyLocation()
+  if (hasCoordinates(location))
+    return parseFloat(String(location.latitude)) + "," + parseFloat(String(location.longitude))
+
+  var name = String(location.name || "").replace(/^\s+|\s+$/g, "")
   return name === "" ? "" : encodeURIComponent(name)
 }
 
-// Open-Meteo geocoding response → suggestion rows for the location picker.
-function parseGeocodingResults(raw) {
+function conditionsUrl(query) {
+  return "https://wttr.in/" + String(query || "") + "?format=j1"
+}
+
+function detectedPlaceUrl() {
+  return "https://wttr.in/?format=%l"
+}
+
+function forecastUrl(coordinates) {
+  if (!coordinates) return ""
+  return "https://api.open-meteo.com/v1/forecast"
+    + "?latitude=" + encodeURIComponent(String(coordinates.latitude))
+    + "&longitude=" + encodeURIComponent(String(coordinates.longitude))
+    + "&daily=weather_code,temperature_2m_max,temperature_2m_min"
+    + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day"
+    + "&forecast_days=4"
+    + "&timezone=auto"
+}
+
+function locationSearchUrl(query) {
+  return "https://geocoding-api.open-meteo.com/v1/search?name="
+    + encodeURIComponent(String(query || ""))
+    + "&count=5&language=en&format=json"
+}
+
+function parseDetectedPlaceName(raw) {
+  var text = String(raw || "").replace(/^\s+|\s+$/g, "")
+  return text === "" ? "" : text.split(",")[0]
+}
+
+function forecastCoordinates(location, conditions) {
+  if (hasCoordinates(location))
+    return { latitude: parseFloat(String(location.latitude)), longitude: parseFloat(String(location.longitude)) }
+
+  var area = reportArea(conditions)
+  if (!area) return null
+  var lat = parseFloat(String(area.latitude || ""))
+  var lon = parseFloat(String(area.longitude || ""))
+  if (isNaN(lat) || isNaN(lon)) return null
+  return { latitude: lat, longitude: lon }
+}
+
+function reportArea(report) {
+  return report && report.nearest_area && report.nearest_area[0] ? report.nearest_area[0] : null
+}
+
+function reportAreaName(report) {
+  var area = reportArea(report)
+  return area && area.areaName && area.areaName[0] ? area.areaName[0].value : ""
+}
+
+function reportCountry(report) {
+  var area = reportArea(report)
+  return area && area.country && area.country[0] ? area.country[0].value : ""
+}
+
+function reportCurrent(report) {
+  return report && report.current_condition && report.current_condition[0] ? report.current_condition[0] : null
+}
+
+function parseLocationSuggestions(raw) {
   try {
     var data = JSON.parse(String(raw || "{}"))
     var results = data.results
@@ -57,7 +121,7 @@ function parseGeocodingResults(raw) {
   }
 }
 
-function locationCommit(text, suggestions, selectedIndex) {
+function commitLocation(text, suggestions, selectedIndex) {
   var name = String(text || "").replace(/^\s+|\s+$/g, "")
   if (name === "") return { name: "", latitude: null, longitude: null }
 
@@ -130,8 +194,8 @@ function dayName(dateString, formatter) {
   return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()]
 }
 
-function openMeteoForecastDays(dailyForecastReport, todayString) {
-  var daily = dailyForecastReport && dailyForecastReport.daily ? dailyForecastReport.daily : null
+function dailyForecastDays(dailyReport, todayString) {
+  var daily = dailyReport && dailyReport.daily ? dailyReport.daily : null
   if (!daily || !daily.time) return []
 
   var result = []
@@ -153,12 +217,8 @@ function openMeteoForecastDays(dailyForecastReport, todayString) {
   return result
 }
 
-// Open-Meteo bundles current conditions with the daily forecast request and
-// answers far faster than wttr.in. Normalize them to wttr's
-// current_condition shape so the panel can use either source
-// interchangeably. Open-Meteo reports metric (°C, km/h).
-function openMeteoCurrentCondition(dailyForecastReport) {
-  var current = dailyForecastReport && dailyForecastReport.current ? dailyForecastReport.current : null
+function dailyCurrentCondition(dailyReport) {
+  var current = dailyReport && dailyReport.current ? dailyReport.current : null
   if (!current || current.temperature_2m === undefined || current.temperature_2m === null) return null
   return {
     temp_C: roundedTemp(current.temperature_2m),
@@ -182,17 +242,11 @@ function currentIcon(current, fallback) {
   return fallback || ""
 }
 
-// wttr.in has no day/night flag. Use its icon only to fill an empty initial
-// state, never to replace a day/night-aware icon resolved by Open-Meteo.
-function provisionalCurrentIcon(current, resolvedIcon) {
-  return resolvedIcon || currentIcon(current, "")
+function locationSaveCompletesOn(hasSavedCoordinates, document) {
+  return hasSavedCoordinates ? document === "forecast" : document === "conditions"
 }
 
-function weatherResponseCompletesSave(hasConfiguredCoordinates, source) {
-  return hasConfiguredCoordinates ? source === "open-meteo" : source === "wttr"
-}
-
-function wttrNextForecastDays(report, todayString) {
+function primaryForecastDays(report, todayString) {
   var days = report && report.weather ? report.weather : []
   var result = []
   for (var i = 0; i < days.length && result.length < 3; ++i) {
@@ -201,9 +255,9 @@ function wttrNextForecastDays(report, todayString) {
   return result
 }
 
-function buildForecastDays(report, dailyForecastReport, todayString) {
-  var days = openMeteoForecastDays(dailyForecastReport, todayString)
-  return days.length > 0 ? days : wttrNextForecastDays(report, todayString)
+function buildForecastDays(report, dailyReport, todayString) {
+  var days = dailyForecastDays(dailyReport, todayString)
+  return days.length > 0 ? days : primaryForecastDays(report, todayString)
 }
 
 function bareTempForDay(day, kind, useImperial) {
@@ -232,6 +286,108 @@ function dayIcon(day) {
     }
   }
   return iconForCode(best.weatherCode, false)
+}
+
+function missingMoonEvent(value) {
+  var text = String(value || "").replace(/^\s+|\s+$/g, "")
+  if (text === "") return true
+  return /^no moon(rise|set)$/i.test(text)
+}
+
+function reportAstronomy(report, today) {
+  var days = report && report.weather ? report.weather : []
+  for (var i = 0; i < days.length; i++) {
+    var day = days[i]
+    if (day && day.date === today)
+      return day.astronomy && day.astronomy[0] ? day.astronomy[0] : null
+  }
+  return null
+}
+
+function buildSun(astro) {
+  return {
+    sunrise: astro && astro.sunrise ? String(astro.sunrise) : "",
+    sunset: astro && astro.sunset ? String(astro.sunset) : ""
+  }
+}
+
+function buildMoon(astro) {
+  if (!astro) return { phase: "", illumination: "", rise: null, set: null }
+  return {
+    phase: astro.moon_phase ? String(astro.moon_phase) : "",
+    illumination: astro.moon_illumination ? String(astro.moon_illumination) + "%" : "",
+    rise: missingMoonEvent(astro.moonrise) ? null : String(astro.moonrise),
+    set: missingMoonEvent(astro.moonset) ? null : String(astro.moonset)
+  }
+}
+
+function pickCurrent(hasCoords, dailyCurrent, primaryCurrent) {
+  if (hasCoords && dailyCurrent) return dailyCurrent
+  return primaryCurrent || dailyCurrent
+}
+
+function formatForecast(days, useImperial, formatDayName) {
+  var out = []
+  for (var i = 0; i < days.length; i++) {
+    var day = days[i]
+    out.push({
+      date: day.date,
+      weekday: String(dayName(day.date, formatDayName) || "").toUpperCase(),
+      icon: dayIcon(day),
+      high: bareTempForDay(day, "max", useImperial),
+      low: bareTempForDay(day, "min", useImperial)
+    })
+  }
+  return out
+}
+
+function displayLocationName(location, detectedPlaceName, conditions) {
+  if (location.name) return location.name
+  if (detectedPlaceName) return detectedPlaceName
+  return reportAreaName(conditions)
+}
+
+function buildView(input) {
+  input = input || {}
+  var location = input.location || emptyLocation()
+  var conditions = input.conditions
+  var forecastDoc = input.forecast
+  var outlookCurrent = dailyCurrentCondition(forecastDoc)
+  var conditionsCurrent = reportCurrent(conditions)
+  var currentRaw = pickCurrent(hasCoordinates(location), outlookCurrent, conditionsCurrent)
+  var country = reportCountry(conditions)
+  var useImperial = shouldUseImperial(input.unit, input.locale, country)
+  var forecast = formatForecast(
+    buildForecastDays(conditions, forecastDoc, input.today),
+    useImperial,
+    input.formatWeekday
+  )
+  var astronomy = reportAstronomy(conditions, input.today)
+  var current = null
+  if (currentRaw) {
+    current = {
+      icon: currentIcon(outlookCurrent, "") || currentIcon(currentRaw, ""),
+      temperature: String(useImperial ? currentRaw.temp_F : currentRaw.temp_C),
+      unit: useImperial ? "°F" : "°C",
+      feelsLike: formatTemp(useImperial ? currentRaw.FeelsLikeF : currentRaw.FeelsLikeC, useImperial),
+      wind: useImperial
+        ? (currentRaw.windspeedMiles + " mph")
+        : (currentRaw.windspeedKmph + " km/h"),
+      humidity: currentRaw.humidity + "%"
+    }
+  }
+
+  return {
+    location: {
+      name: displayLocationName(location, input.detectedPlaceName, conditions),
+      country: country
+    },
+    units: useImperial ? "imperial" : "metric",
+    current: current,
+    sun: buildSun(astronomy),
+    moon: buildMoon(astronomy),
+    forecast: forecast
+  }
 }
 
 function iconForOpenMeteoCode(code, night) {
@@ -267,29 +423,19 @@ function iconForCode(code, night) {
 
 if (typeof module !== "undefined") {
   module.exports = {
-    parseLocationFile: parseLocationFile,
-    wttrLocationQuery: wttrLocationQuery,
-    parseGeocodingResults: parseGeocodingResults,
-    locationCommit: locationCommit,
-    isFutureForecastDate: isFutureForecastDate,
-    roundedTemp: roundedTemp,
-    celsiusToFahrenheit: celsiusToFahrenheit,
-    formatTemp: formatTemp,
-    normalizedUnit: normalizedUnit,
-    localeUsesImperial: localeUsesImperial,
-    countryUsesImperial: countryUsesImperial,
-    shouldUseImperial: shouldUseImperial,
-    dayName: dayName,
-    openMeteoForecastDays: openMeteoForecastDays,
-    openMeteoCurrentCondition: openMeteoCurrentCondition,
-    currentIcon: currentIcon,
-    provisionalCurrentIcon: provisionalCurrentIcon,
-    weatherResponseCompletesSave: weatherResponseCompletesSave,
-    wttrNextForecastDays: wttrNextForecastDays,
-    buildForecastDays: buildForecastDays,
-    bareTempForDay: bareTempForDay,
-    dayIcon: dayIcon,
-    iconForOpenMeteoCode: iconForOpenMeteoCode,
-    iconForCode: iconForCode
+    emptyLocation: emptyLocation,
+    parseSavedLocation: parseSavedLocation,
+    hasCoordinates: hasCoordinates,
+    locationQuery: locationQuery,
+    conditionsUrl: conditionsUrl,
+    forecastUrl: forecastUrl,
+    detectedPlaceUrl: detectedPlaceUrl,
+    locationSearchUrl: locationSearchUrl,
+    parseDetectedPlaceName: parseDetectedPlaceName,
+    forecastCoordinates: forecastCoordinates,
+    parseLocationSuggestions: parseLocationSuggestions,
+    commitLocation: commitLocation,
+    locationSaveCompletesOn: locationSaveCompletesOn,
+    buildView: buildView
   }
 }
