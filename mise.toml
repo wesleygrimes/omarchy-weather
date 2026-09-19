@@ -1,0 +1,13 @@
+# `mise tasks` lists jobs. Each runs as `mise <job>`.
+
+[tasks.dev]
+description = "Watch plugin files and hot-reload Quickshell on save"
+run = "bash scripts/dev.sh"
+
+[tasks.screenshot]
+description = "Open the weather popup and save a shareable PNG"
+run = "bash scripts/screenshot.sh"
+
+[tasks.check]
+description = "Run plugin checks"
+run = "bash scripts/check.sh"
