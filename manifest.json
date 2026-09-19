@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "omarchy.weather",
+  "id": "wesgrimes.weather",
   "name": "Weather",
   "version": "1.0.0",
   "author": "Omarchy",
@@ -17,5 +17,8 @@
     "category": "Info",
     "allowMultiple": false,
     "settingsForm": "weatherSettings"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.weather"
   }
 }
