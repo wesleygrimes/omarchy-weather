@@ -30,7 +30,6 @@ focus_ws emptynm
 sleep 0.35
 
 omarchy-shell shell summon "$id" '{}' >/dev/null || true
-omarchy-shell omarchy.weather open >/dev/null || true
 sleep 2
 
 output=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name')
