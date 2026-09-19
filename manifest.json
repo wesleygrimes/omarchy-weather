@@ -3,8 +3,10 @@
   "id": "wesgrimes.weather",
   "name": "Weather",
   "version": "1.0.0",
-  "author": "Omarchy",
-  "description": "Weather pill with detail popup",
+  "author": "Wes Grimes",
+  "license": "MIT",
+  "homepage": "https://github.com/wesleygrimes/omarchy-weather",
+  "description": "Current weather on the bar with a forecast popup",
   "kinds": [
     "bar-widget"
   ],
@@ -13,12 +15,9 @@
   },
   "barWidget": {
     "displayName": "Weather",
-    "description": "Weather pill with detail popup",
+    "description": "Current weather on the bar with a forecast popup",
     "category": "Info",
     "allowMultiple": false,
-    "settingsForm": "weatherSettings"
-  },
-  "omarchy": {
-    "clonedFrom": "omarchy.weather"
+    "defaultSection": "right"
   }
 }
