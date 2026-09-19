@@ -242,10 +242,6 @@ function currentIcon(current, fallback) {
   return fallback || ""
 }
 
-function locationSaveCompletesOn(hasSavedCoordinates, document) {
-  return hasSavedCoordinates ? document === "forecast" : document === "conditions"
-}
-
 function primaryForecastDays(report, todayString) {
   var days = report && report.weather ? report.weather : []
   var result = []
@@ -435,7 +431,6 @@ if (typeof module !== "undefined") {
     forecastCoordinates: forecastCoordinates,
     parseLocationSuggestions: parseLocationSuggestions,
     commitLocation: commitLocation,
-    locationSaveCompletesOn: locationSaveCompletesOn,
     buildView: buildView
   }
 }

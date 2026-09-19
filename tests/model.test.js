@@ -34,10 +34,6 @@ equal(
 )
 equal(weather.forecastCoordinates(weather.emptyLocation(), {}), null, "needs a location or a conditions area")
 
-assert.strictEqual(weather.locationSaveCompletesOn(true, "forecast"), true, "a pinned save completes on forecast")
-assert.strictEqual(weather.locationSaveCompletesOn(true, "conditions"), false, "a pinned save waits through conditions")
-assert.strictEqual(weather.locationSaveCompletesOn(false, "conditions"), true, "an auto-detect save completes on conditions")
-
 const conditions = {
   current_condition: [{
     temp_C: "26", temp_F: "80", FeelsLikeC: "27", FeelsLikeF: "81",

@@ -3,7 +3,6 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
-import "Model.js" as Model
 
 Panel {
   id: root
@@ -20,14 +19,14 @@ Panel {
     openedFromHotkey = false
     setCenterHoverRevealSuppressed(false)
     root.controller.show()
-    locationFile.reload()
+    weatherModel.reloadLocation()
     root.refresh()
   }
 
   function openFromHotkey() {
     openedFromHotkey = true
     root.controller.show()
-    locationFile.reload()
+    weatherModel.reloadLocation()
     root.refresh()
     suppressHoverRevealAfterPopoutHandoff()
   }
@@ -60,57 +59,13 @@ Panel {
       root.bar.centerHoverRevealSuppressed = value
   }
 
-  property var lastGoodConditions: null
-  property var lastGoodForecast: null
-  property string detectedPlaceName: ""
-  property var savedLocation: Model.emptyLocation()
-  readonly property string locationQuery: Model.locationQuery(savedLocation)
-  readonly property bool hasSavedCoordinates: Model.hasCoordinates(savedLocation)
-
-  onLocationQueryChanged: {
-    if (savingLocation) waitingForWeatherAfterSave = true
-    resetFetchRetries()
-    stopInFlightFetches()
-    Qt.callLater(refresh)
-  }
-
-  property FileView locationFile: FileView {
-    path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
-    watchChanges: true
-    printErrors: false
-    onFileChanged: reload()
-    onLoaded: root.savedLocation = Model.parseSavedLocation(text())
-    onLoadFailed: root.savedLocation = Model.emptyLocation()
-  }
-
-  Timer {
-    id: rereadSavedLocationAfterStartup
-    interval: 1500
-    running: true
-    onTriggered: locationFile.reload()
-  }
-
-  property int conditionsRetries: 0
-  property int forecastRetries: 0
-
   property bool editingLocation: false
-  property bool savingLocation: false
-  property bool waitingForWeatherAfterSave: false
-  property var locationSuggestions: []
+  readonly property var view: weatherModel.view
+  readonly property var savedLocation: weatherModel.savedLocation
+  readonly property var locationSuggestions: weatherModel.locationSuggestions
   property int suggestionIndex: 0
-  property string queuedSearchQuery: ""
-  property string inFlightSearchQuery: ""
-
-  readonly property var view: Model.buildView({
-    location: root.savedLocation,
-    detectedPlaceName: root.detectedPlaceName,
-    conditions: root.lastGoodConditions,
-    forecast: root.lastGoodForecast,
-    unit: setting("unit", ""),
-    locale: Qt.locale().name,
-    today: Qt.formatDate(new Date(), "yyyy-MM-dd"),
-    formatWeekday: function(date) { return Qt.formatDate(date, "dddd") }
-  })
+  onLocationSuggestionsChanged: suggestionIndex = 0
+  readonly property bool savingLocation: weatherModel.savingLocation
   readonly property var current: view && view.current ? view.current : null
   readonly property var forecastDays: view && view.forecast ? view.forecast : []
   readonly property string label: current ? current.icon : ""
@@ -120,38 +75,24 @@ Panel {
   readonly property string clearLocationGlyph: "✕"
   readonly property string savingLocationGlyph: "󰦖"
 
-  readonly property int refreshMinutes: Math.max(1, parseInt(setting("refreshMinutes", 15), 10) || 15)
-
-  function resetFetchRetries() {
-    conditionsRetries = 0
-    forecastRetries = 0
-  }
-
-  function stopInFlightFetches() {
-    conditionsProc.running = false
-    forecastProc.running = false
+  WeatherModel {
+    id: weatherModel
+    unit: root.setting("unit", "")
+    refreshInterval: root.setting("refreshMinutes", 15)
+    onSaveCompleted: root.cancelEditingLocation()
   }
 
   function refresh() {
-    resetFetchRetries()
-    if (!conditionsProc.running) conditionsProc.running = true
-    if (root.locationQuery === "" && !detectedPlaceProc.running) detectedPlaceProc.running = true
-    fetchForecast(root.lastGoodConditions)
+    weatherModel.refresh()
   }
 
-  function fetchForecast(conditions) {
-    if (forecastProc.running) return
-    var coordinates = Model.forecastCoordinates(root.savedLocation, conditions || root.lastGoodConditions)
-    if (!coordinates) return
-    forecastProc.command = ["curl", "-fsS", "--max-time", "5", Model.forecastUrl(coordinates)]
-    forecastProc.running = true
+  function showStatus() {
+    weatherModel.showStatus()
   }
 
   function startEditingLocation() {
     editingLocation = true
-    savingLocation = false
-    waitingForWeatherAfterSave = false
-    locationSuggestions = []
+    weatherModel.beginLocationSearch()
     suggestionIndex = 0
     Qt.callLater(function() {
       locationField.text = root.savedLocation.name
@@ -162,202 +103,20 @@ Panel {
 
   function cancelEditingLocation() {
     editingLocation = false
-    savingLocation = false
-    waitingForWeatherAfterSave = false
-    locationSuggestions = []
-    locationSearchDebounce.stop()
+    weatherModel.cancelLocationSearch()
     Qt.callLater(function() { if (keyCatcher) keyCatcher.forceActiveFocus() })
   }
 
   function commitLocation() {
-    var location = Model.commitLocation(locationField.text, locationSuggestions, suggestionIndex)
-    if (location.name === "") {
-      clearLocation()
-      return
-    }
-    savingLocation = true
-    waitingForWeatherAfterSave = false
-    savedLocation = {
-      name: location.name,
-      latitude: location.latitude,
-      longitude: location.longitude
-    }
-    persistLocation(location.name, location.latitude, location.longitude)
+    weatherModel.commitLocation(locationField.text, suggestionIndex)
   }
 
   function clearLocation() {
-    persistLocation("", null, null)
-    detectedPlaceName = ""
-    cancelEditingLocation()
+    weatherModel.clearLocation()
   }
 
   function pickSuggestion(suggestion) {
-    if (!suggestion) return
-    savingLocation = true
-    waitingForWeatherAfterSave = false
-    savedLocation = {
-      name: suggestion.name,
-      latitude: suggestion.latitude,
-      longitude: suggestion.longitude
-    }
-    persistLocation(suggestion.name, suggestion.latitude, suggestion.longitude)
-  }
-
-  function dismissEditorAfterSave() {
-    if (savingLocation && waitingForWeatherAfterSave) cancelEditingLocation()
-  }
-
-  function persistLocation(name, latitude, longitude) {
-    if (name && latitude !== null && longitude !== null)
-      saveLocationProc.command = ["omarchy-weather-location", "--set", name, latitude + "," + longitude]
-    else if (name)
-      saveLocationProc.command = ["omarchy-weather-location", "--set", name]
-    else
-      saveLocationProc.command = ["omarchy-weather-location", "--clear"]
-    saveLocationProc.running = true
-  }
-
-  function queueLocationSearch() {
-    var query = locationField.text.trim()
-    if (query.length < 2) {
-      locationSuggestions = []
-      return
-    }
-    queuedSearchQuery = query
-    if (!locationSearchProc.running) fetchQueuedLocationSearch()
-  }
-
-  function fetchQueuedLocationSearch() {
-    inFlightSearchQuery = queuedSearchQuery
-    locationSearchProc.command = ["curl", "-fsS", "--max-time", "5", Model.locationSearchUrl(inFlightSearchQuery)]
-    locationSearchProc.running = true
-  }
-
-  Process {
-    id: conditionsProc
-    command: ["curl", "-fsS", "--max-time", "10", Model.conditionsUrl(root.locationQuery)]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var raw = String(text || "").trim()
-        if (!raw) {
-          root.retryConditionsFetch()
-          return
-        }
-        try {
-          var parsed = JSON.parse(raw)
-          root.lastGoodConditions = parsed
-          root.conditionsRetries = 0
-          if (Model.locationSaveCompletesOn(root.hasSavedCoordinates, "conditions"))
-            root.dismissEditorAfterSave()
-          if (!root.hasSavedCoordinates)
-            root.fetchForecast(parsed)
-        } catch (e) {
-          root.retryConditionsFetch()
-        }
-      }
-    }
-  }
-
-  function retryConditionsFetch() {
-    if (conditionsRetries >= 3) return
-    conditionsRetries++
-    conditionsRetryTimer.restart()
-  }
-
-  Timer {
-    id: conditionsRetryTimer
-    interval: 2500
-    onTriggered: if (!conditionsProc.running) conditionsProc.running = true
-  }
-
-  function retryForecastFetch() {
-    if (forecastRetries >= 3) return
-    forecastRetries++
-    forecastRetryTimer.restart()
-  }
-
-  Timer {
-    id: forecastRetryTimer
-    interval: 2500
-    onTriggered: root.fetchForecast(null)
-  }
-
-  Process {
-    id: forecastProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var raw = String(text || "").trim()
-        if (!raw) {
-          root.retryForecastFetch()
-          return
-        }
-        try {
-          var parsed = JSON.parse(raw)
-          root.lastGoodForecast = parsed
-          root.forecastRetries = 0
-          if (Model.locationSaveCompletesOn(root.hasSavedCoordinates, "forecast"))
-            root.dismissEditorAfterSave()
-        } catch (e) {
-          root.retryForecastFetch()
-        }
-      }
-    }
-  }
-
-  Process {
-    id: locationSearchProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        root.locationSuggestions = root.editingLocation ? Model.parseLocationSuggestions(text) : []
-        root.suggestionIndex = 0
-        if (root.queuedSearchQuery !== root.inFlightSearchQuery) Qt.callLater(root.fetchQueuedLocationSearch)
-      }
-    }
-  }
-
-  Timer {
-    id: locationSearchDebounce
-    interval: 300
-    onTriggered: root.queueLocationSearch()
-  }
-
-  Process {
-    id: saveLocationProc
-    onExited: function(exitCode) {
-      if (exitCode !== 0 || !root.savingLocation) return
-      locationFile.reload()
-      if (!root.waitingForWeatherAfterSave) refreshAfterSavingCurrentLocation()
-    }
-  }
-
-  function refreshAfterSavingCurrentLocation() {
-    waitingForWeatherAfterSave = true
-    resetFetchRetries()
-    stopInFlightFetches()
-    Qt.callLater(root.refresh)
-  }
-
-  Process {
-    id: detectedPlaceProc
-    command: ["curl", "-fsS", "--max-time", "4", Model.detectedPlaceUrl()]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        root.detectedPlaceName = Model.parseDetectedPlaceName(text)
-      }
-    }
-  }
-
-  Timer {
-    id: refreshTimer
-    interval: root.refreshMinutes * 60 * 1000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: root.refresh()
+    weatherModel.pickSuggestion(suggestion)
   }
 
   IpcHandler {
@@ -500,7 +259,7 @@ Panel {
               foreground: root.bar.foreground
               font.family: root.bar.fontFamily
 
-              onTextChanged: if (root.editingLocation && !root.savingLocation) locationSearchDebounce.restart()
+              onTextChanged: if (root.editingLocation && !root.savingLocation) weatherModel.searchLocation(text)
 
               Keys.onPressed: function(event) {
                 if (event.key === Qt.Key_Escape) {

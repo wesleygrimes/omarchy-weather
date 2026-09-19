@@ -3,7 +3,7 @@
 How to write QML and JS in this repo. Contract:
 [Develop a Plugin](https://plugins.omarchy.org/develop.html).
 
-Match `BarWidget.qml`, `Panel.qml`, and `Model.js` here. If you need a
+Match `BarWidget.qml`, `Panel.qml`, `WeatherModel.qml`, and `Model.js` here. If you need a
 pattern, copy first-party `omarchy.clock` or `omarchy.power`. Do not
 invent a simpler widget or a parallel kit.
 
@@ -15,8 +15,13 @@ layers or files "for later."
 | File | Role |
 |---|---|
 | `BarWidget.qml` | Manifest entry. Pill + `Loader` for the panel. Forwards `open` / `close` / `opened` / `popoutSwitchClosing`. |
-| `Panel.qml` | Popup UI and process I/O. |
+| `Panel.qml` | Popup UI, focus, keyboard handling, and forwarding user actions. |
+| `WeatherModel.qml` | Reactive weather state, fetching, retries, persistence, and search. It never references UI objects. |
 | `Model.js` | Pure parse/format. No Qt types. `import "Model.js" as Model`. |
+
+Views own focus, selection, and editor visibility. Nonvisual models own
+data and workflow state; expose properties, action methods, and completion
+signals. Pass values into model methods, never UI objects.
 
 One `bar-widget`. The entry point loads `Panel.qml`; do not declare a
 second `panel` kind. Same `moduleName` in both QML files, and it matches
@@ -42,8 +47,9 @@ No hardcoded hex, RGB, or font families. Theme swaps must just work.
 Guard the bar: it is injected after the widget is created. Prefer a
 binding over an imperative update. Prefer a Quickshell library
 (`SystemClock`, `FileView`) over `Process`. When a process is required,
-read it with `StdioCollector` and parse in `Model.js`. Keep the last
-good value on a failed fetch.
+keep it in `WeatherModel.qml`, read it with `StdioCollector`, and parse it
+with pure helpers in `Model.js`. Keep the last good value on a failed fetch.
+Views must not reference model process or persistence objects directly.
 
 Check a light theme and a dark theme before calling a UI change done.
 
