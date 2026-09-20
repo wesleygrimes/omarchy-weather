@@ -3,7 +3,7 @@
 How to write QML and JS in this repo. Contract:
 [Develop a Plugin](https://plugins.omarchy.org/develop.html).
 
-Match `BarWidget.qml`, `Panel.qml`, and `Model.js` here. If you need a
+Match `BarWidget.qml`, `Panel.qml`, `WeatherModel.qml`, and `Model.js` here. If you need a
 pattern, copy first-party `omarchy.clock` or `omarchy.power`. Do not
 invent a simpler widget or a parallel kit.
 
@@ -15,8 +15,13 @@ layers or files "for later."
 | File | Role |
 |---|---|
 | `BarWidget.qml` | Manifest entry. Pill + `Loader` for the panel. Forwards `open` / `close` / `opened` / `popoutSwitchClosing`. |
-| `Panel.qml` | Popup UI and process I/O. |
+| `Panel.qml` | Popup UI, focus, keyboard handling, and forwarding user actions. |
+| `WeatherModel.qml` | Reactive weather state, fetching, retries, persistence, and search. It never references UI objects. |
 | `Model.js` | Pure parse/format. No Qt types. `import "Model.js" as Model`. |
+
+Views own focus, selection, and editor visibility. Nonvisual models own
+data and workflow state; expose properties, action methods, and completion
+signals. Pass values into model methods, never UI objects.
 
 One `bar-widget`. The entry point loads `Panel.qml`; do not declare a
 second `panel` kind. Same `moduleName` in both QML files, and it matches
@@ -42,8 +47,9 @@ No hardcoded hex, RGB, or font families. Theme swaps must just work.
 Guard the bar: it is injected after the widget is created. Prefer a
 binding over an imperative update. Prefer a Quickshell library
 (`SystemClock`, `FileView`) over `Process`. When a process is required,
-read it with `StdioCollector` and parse in `Model.js`. Keep the last
-good value on a failed fetch.
+keep it in `WeatherModel.qml`, read it with `StdioCollector`, and parse it
+with pure helpers in `Model.js`. Keep the last good value on a failed fetch.
+Views must not reference model process or persistence objects directly.
 
 Check a light theme and a dark theme before calling a UI change done.
 
@@ -56,6 +62,36 @@ workaround, or a why.
 // Bar.findPanelWidget requires open/close/opened on the bar-widget root.
 readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
 ```
+
+## Format
+
+Match the compact QML layout in first-party `omarchy.weather` and
+`omarchy.clock`: two-space indentation, no optional JS semicolons, and
+single-line guards and short conditional assignments. Wrap longer logic
+when it helps readability. Do not run `qmlformat`; it expands these short
+statements onto separate lines. Preserve existing layout when editing;
+avoid unrelated formatting changes.
+
+```qml
+function bindHostIntoPanel() {
+  var target = panelLoader.item
+  if (!target) return
+  if ("bar" in target) target.bar = root.bar
+}
+```
+
+`mise format` writes `Model.js` and the tests with Biome. `mise check`
+validates the plugin and fails if JS formatting would change. Do not point
+Biome at QML, and do not enable a JS linter on `Model.js`.
+
+`mise check` also runs `qmllint` with zero warnings allowed. It uses the
+installed Qt and Quickshell types and the modules under `$OMARCHY_PATH/shell`
+(default `/usr/share/omarchy/shell`). Linting preserves compact layout.
+The two views suppress `missing-property` because injected host/theme
+objects and `Loader.item` have dynamic properties; missing-member checks
+are therefore unavailable in those files. Keep other warnings enabled.
+Bind delegates to their component context and qualify parent properties
+with an id.
 
 ## Tests
 

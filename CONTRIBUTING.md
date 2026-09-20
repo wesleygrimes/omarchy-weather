@@ -6,12 +6,17 @@ The plugin id is `wesgrimes.weather`.
 Saved QML/JS reloads in the Omarchy shell; `mise dev` forces a rescan if it does not.
 
 ```bash
+mise format      # write JS
+mise check       # tests, validate, fail if unformatted
 mise dev         # watch files and hot-reload Quickshell
 mise screenshot  # open the popup; PNG lands in gitignored tmp/
-mise check       # validate the plugin
 ```
 
 Run `mise check` before every commit. Do not commit `tmp/`.
+
+QML linting requires `qmllint` from `qt6-declarative`, Quickshell, and the
+Omarchy shell modules. Set `OMARCHY_PATH` for a nonstandard Omarchy install.
+Warnings fail the check; linting does not reformat QML.
 
 Plugin style: [STYLE.md](STYLE.md).
 

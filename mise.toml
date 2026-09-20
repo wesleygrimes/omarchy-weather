@@ -8,6 +8,16 @@ run = "bash scripts/dev.sh"
 description = "Open the weather popup and save a shareable PNG"
 run = "bash scripts/screenshot.sh"
 
+[tasks.format]
+description = "Write JavaScript formatting"
+run = "bash scripts/format.sh"
+
 [tasks.check]
 description = "Run plugin checks"
 run = "bash scripts/check.sh"
+
+[tools]
+biome = "2.5.14"
+
+[env]
+_.path = ["/usr/lib/qt6/bin"]

@@ -1,3 +1,5 @@
+// Loader.item and the injected host/theme objects expose runtime properties.
+// qmllint disable missing-property
 import QtQuick
 import qs.Commons
 import qs.Ui
@@ -6,7 +8,7 @@ BarWidget {
   id: root
   moduleName: "wesgrimes.weather"
 
-  function injectPanel() {
+  function bindHostIntoPanel() {
     var target = panelLoader.item
     if (!target) return
     if ("bar" in target) target.bar = root.bar
@@ -23,10 +25,6 @@ BarWidget {
     if (panelLoader.item && panelLoader.item.toggle) panelLoader.item.toggle()
   }
 
-  // Shape contract for shell.summon/hide/toggle routing (Bar.findPanelWidget
-  // requires open/close/opened on the bar-widget root). Open maps to the
-  // panel's hotkey path so summoning suppresses the center hover reveal,
-  // matching what the old per-plugin IpcHandler did.
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
 
   function open() {
@@ -37,9 +35,6 @@ BarWidget {
     if (panelLoader.item && panelLoader.item.close) panelLoader.item.close()
   }
 
-  // Forwarded so this widget can stand in for the panel as the bar's popout
-  // identity: Bar.requestPopout prefers closeForPopoutSwitch over close, and
-  // KeyboardPanel reads popoutSwitchClosing back off its owner.
   readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
 
   function closeForPopoutSwitch() {
@@ -50,8 +45,8 @@ BarWidget {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  onBarChanged: injectPanel()
-  onSettingsChanged: injectPanel()
+  onBarChanged: bindHostIntoPanel()
+  onSettingsChanged: bindHostIntoPanel()
 
   Loader {
     id: panelLoader
@@ -59,8 +54,8 @@ BarWidget {
     source: Qt.resolvedUrl("Panel.qml")
     visible: false
     onLoaded: {
-      root.injectPanel()
-      Qt.callLater(root.injectPanel)
+      root.bindHostIntoPanel()
+      Qt.callLater(root.bindHostIntoPanel)
     }
   }
 
@@ -70,12 +65,11 @@ BarWidget {
     bar: root.bar
     text: panelLoader.item ? panelLoader.item.label : ""
     slotSize: Style.bar.statusSlot
-    // Tooltip suppressed because the panel is the detail view.
     tooltipText: ""
 
     onPressed: function(b) {
       if (!root.bar) return
-      if (b === Qt.RightButton) root.bar.run("omarchy-notification-send \"$(omarchy-weather-status)\"")
+      if (b === Qt.RightButton && panelLoader.item && panelLoader.item.showStatus) panelLoader.item.showStatus()
       else if (b === Qt.MiddleButton) root.refresh()
       else root.togglePanel()
     }
