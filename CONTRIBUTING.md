@@ -14,6 +14,10 @@ mise screenshot  # open the popup; PNG lands in gitignored tmp/
 
 Run `mise check` before every commit. Do not commit `tmp/`.
 
+QML linting requires `qmllint` from `qt6-declarative`, Quickshell, and the
+Omarchy shell modules. Set `OMARCHY_PATH` for a nonstandard Omarchy install.
+Warnings fail the check; linting does not reformat QML.
+
 Plugin style: [STYLE.md](STYLE.md).
 
 ## Commits

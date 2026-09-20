@@ -243,7 +243,9 @@ QtObject {
   }
 
   property Process saveLocationProc: Process {
-    onExited: function(exitCode, exitStatus) {
+    // Quickshell's type metadata omits QProcess::ExitStatus; only exitCode is used.
+    // qmllint disable signal-handler-parameters
+    onExited: function(exitCode) {
       if (root.pendingLocation === null) return
       if (exitCode !== 0) {
         root.pendingLocation = null
@@ -256,6 +258,7 @@ QtObject {
       root.locationFile.reload()
       Qt.callLater(root.refresh)
     }
+    // qmllint enable signal-handler-parameters
   }
 
   property Process detectedPlaceProc: Process {

@@ -84,6 +84,15 @@ function bindHostIntoPanel() {
 validates the plugin and fails if JS formatting would change. Do not point
 Biome at QML, and do not enable a JS linter on `Model.js`.
 
+`mise check` also runs `qmllint` with zero warnings allowed. It uses the
+installed Qt and Quickshell types and the modules under `$OMARCHY_PATH/shell`
+(default `/usr/share/omarchy/shell`). Linting preserves compact layout.
+The two views suppress `missing-property` because injected host/theme
+objects and `Loader.item` have dynamic properties; missing-member checks
+are therefore unavailable in those files. Keep other warnings enabled.
+Bind delegates to their component context and qualify parent properties
+with an id.
+
 ## Tests
 
 `mise check` is the default. Do not add a QML runner, screenshot tests,

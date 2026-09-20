@@ -1,3 +1,5 @@
+// Loader.item and the injected host/theme objects expose runtime properties.
+// qmllint disable missing-property
 import QtQuick
 import qs.Commons
 import qs.Ui

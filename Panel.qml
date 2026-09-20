@@ -1,5 +1,8 @@
+pragma ComponentBehavior: Bound
+
+// The injected host and theme objects expose runtime properties.
+// qmllint disable missing-property
 import QtQuick
-import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
@@ -383,6 +386,7 @@ Panel {
           model: root.locationSuggestions
 
           Rectangle {
+            id: suggestionDelegate
             required property var modelData
             required property int index
             width: parent.width
@@ -399,15 +403,15 @@ Panel {
 
               Text {
                 textFormat: Text.PlainText
-                text: modelData.name
-                color: index === root.suggestionIndex ? Style.hoverStateColor(root.bar.foreground, Color.accent) : root.bar.foreground
+                text: suggestionDelegate.modelData.name
+                color: suggestionDelegate.index === root.suggestionIndex ? Style.hoverStateColor(root.bar.foreground, Color.accent) : root.bar.foreground
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.body
               }
               Text {
                 textFormat: Text.PlainText
                 visible: text !== ""
-                text: modelData.description
+                text: suggestionDelegate.modelData.description
                 color: Qt.darker(root.bar.foreground, 1.5)
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -419,8 +423,8 @@ Panel {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onPositionChanged: root.suggestionIndex = index
-              onClicked: root.pickSuggestion(modelData)
+              onPositionChanged: root.suggestionIndex = suggestionDelegate.index
+              onClicked: root.pickSuggestion(suggestionDelegate.modelData)
             }
           }
         }
@@ -457,6 +461,7 @@ Panel {
             model: root.forecastDays
 
             Row {
+              id: forecastDelegate
               required property var modelData
               required property int index
               spacing: Style.space(10)
@@ -464,7 +469,7 @@ Panel {
               Text {
                 textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
-                text: modelData.icon
+                text: forecastDelegate.modelData.icon
                 color: root.bar.foreground
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.display
@@ -476,7 +481,7 @@ Panel {
 
                 Text {
                   textFormat: Text.PlainText
-                  text: modelData.weekday
+                  text: forecastDelegate.modelData.weekday
                   color: Qt.darker(root.bar.foreground, 1.4)
                   font.family: root.bar.fontFamily
                   font.pixelSize: Style.font.caption
@@ -488,14 +493,14 @@ Panel {
 
                   Text {
                     textFormat: Text.PlainText
-                    text: modelData.high
+                    text: forecastDelegate.modelData.high
                     color: root.bar.foreground
                     font.family: root.bar.fontFamily
                     font.pixelSize: Style.font.body
                   }
                   Text {
                     textFormat: Text.PlainText
-                    text: modelData.low
+                    text: forecastDelegate.modelData.low
                     color: Qt.darker(root.bar.foreground, 1.5)
                     font.family: root.bar.fontFamily
                     font.pixelSize: Style.font.body
