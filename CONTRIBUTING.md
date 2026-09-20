@@ -6,9 +6,10 @@ The plugin id is `wesgrimes.weather`.
 Saved QML/JS reloads in the Omarchy shell; `mise dev` forces a rescan if it does not.
 
 ```bash
+mise format      # write QML and JS
+mise check       # tests, validate, fail if unformatted
 mise dev         # watch files and hot-reload Quickshell
 mise screenshot  # open the popup; PNG lands in gitignored tmp/
-mise check       # validate the plugin
 ```
 
 Run `mise check` before every commit. Do not commit `tmp/`.

@@ -63,6 +63,12 @@ workaround, or a why.
 readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
 ```
 
+## Format
+
+`mise format` writes. `qmlformat` owns `*.qml`. Biome owns `Model.js` and
+the tests. `mise check` fails if either would change. Do not point Biome
+at QML, and do not enable a JS linter on `Model.js`.
+
 ## Tests
 
 `mise check` is the default. Do not add a QML runner, screenshot tests,

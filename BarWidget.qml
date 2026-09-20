@@ -7,36 +7,46 @@ BarWidget {
   moduleName: "wesgrimes.weather"
 
   function bindHostIntoPanel() {
-    var target = panelLoader.item
-    if (!target) return
-    if ("bar" in target) target.bar = root.bar
-    if ("settings" in target) target.settings = root.settings
-    if ("anchorItem" in target) target.anchorItem = button
-    if ("hostWidget" in target) target.hostWidget = root
+    var target = panelLoader.item;
+    if (!target)
+      return;
+    if ("bar" in target)
+      target.bar = root.bar;
+    if ("settings" in target)
+      target.settings = root.settings;
+    if ("anchorItem" in target)
+      target.anchorItem = button;
+    if ("hostWidget" in target)
+      target.hostWidget = root;
   }
 
   function refresh() {
-    if (panelLoader.item && panelLoader.item.refresh) panelLoader.item.refresh()
+    if (panelLoader.item && panelLoader.item.refresh)
+      panelLoader.item.refresh();
   }
 
   function togglePanel() {
-    if (panelLoader.item && panelLoader.item.toggle) panelLoader.item.toggle()
+    if (panelLoader.item && panelLoader.item.toggle)
+      panelLoader.item.toggle();
   }
 
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
 
   function open() {
-    if (panelLoader.item && panelLoader.item.openFromHotkey) panelLoader.item.openFromHotkey()
+    if (panelLoader.item && panelLoader.item.openFromHotkey)
+      panelLoader.item.openFromHotkey();
   }
 
   function close() {
-    if (panelLoader.item && panelLoader.item.close) panelLoader.item.close()
+    if (panelLoader.item && panelLoader.item.close)
+      panelLoader.item.close();
   }
 
   readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
 
   function closeForPopoutSwitch() {
-    if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
+    if (panelLoader.item)
+      panelLoader.item.closeForPopoutSwitch();
   }
 
   visible: panelLoader.item && panelLoader.item.label !== ""
@@ -52,8 +62,8 @@ BarWidget {
     source: Qt.resolvedUrl("Panel.qml")
     visible: false
     onLoaded: {
-      root.bindHostIntoPanel()
-      Qt.callLater(root.bindHostIntoPanel)
+      root.bindHostIntoPanel();
+      Qt.callLater(root.bindHostIntoPanel);
     }
   }
 
@@ -65,11 +75,15 @@ BarWidget {
     slotSize: Style.bar.statusSlot
     tooltipText: ""
 
-    onPressed: function(b) {
-      if (!root.bar) return
-      if (b === Qt.RightButton && panelLoader.item && panelLoader.item.showStatus) panelLoader.item.showStatus()
-      else if (b === Qt.MiddleButton) root.refresh()
-      else root.togglePanel()
+    onPressed: function (b) {
+      if (!root.bar)
+        return;
+      if (b === Qt.RightButton && panelLoader.item && panelLoader.item.showStatus)
+        panelLoader.item.showStatus();
+      else if (b === Qt.MiddleButton)
+        root.refresh();
+      else
+        root.togglePanel();
     }
   }
 }

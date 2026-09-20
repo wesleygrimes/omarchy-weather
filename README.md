@@ -21,9 +21,10 @@ omarchy plugin remove wesgrimes.weather
 From this directory:
 
 ```bash
+mise format      # write QML and JS
+mise check       # tests, validate, fail if unformatted
 mise dev         # watch files and hot-reload Quickshell
 mise screenshot  # open the popup and save a PNG under tmp/
-mise check       # validate the plugin
 ```
 
 Conventions: [CONTRIBUTING.md](CONTRIBUTING.md). MIT: [LICENSE.md](LICENSE.md).
