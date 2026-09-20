@@ -65,9 +65,24 @@ readonly property bool opened: panelLoader.item ? panelLoader.item.opened === tr
 
 ## Format
 
-`mise format` writes. `qmlformat` owns `*.qml`. Biome owns `Model.js` and
-the tests. `mise check` fails if either would change. Do not point Biome
-at QML, and do not enable a JS linter on `Model.js`.
+Match the compact QML layout in first-party `omarchy.weather` and
+`omarchy.clock`: two-space indentation, no optional JS semicolons, and
+single-line guards and short conditional assignments. Wrap longer logic
+when it helps readability. Do not run `qmlformat`; it expands these short
+statements onto separate lines. Preserve existing layout when editing;
+avoid unrelated formatting changes.
+
+```qml
+function bindHostIntoPanel() {
+  var target = panelLoader.item
+  if (!target) return
+  if ("bar" in target) target.bar = root.bar
+}
+```
+
+`mise format` writes `Model.js` and the tests with Biome. `mise check`
+validates the plugin and fails if JS formatting would change. Do not point
+Biome at QML, and do not enable a JS linter on `Model.js`.
 
 ## Tests
 

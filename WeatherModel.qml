@@ -14,9 +14,9 @@ QtObject {
   readonly property bool hasSavedCoordinates: Model.hasCoordinates(savedLocation)
 
   onLocationQueryChanged: {
-    resetFetchRetries();
-    stopInFlightFetches();
-    Qt.callLater(refresh);
+    resetFetchRetries()
+    stopInFlightFetches()
+    Qt.callLater(refresh)
   }
 
   property FileView locationFile: FileView {
@@ -24,10 +24,8 @@ QtObject {
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoaded: if (root.pendingLocation === null)
-      root.savedLocation = Model.parseSavedLocation(text())
-    onLoadFailed: if (root.pendingLocation === null)
-      root.savedLocation = Model.emptyLocation()
+    onLoaded: if (root.pendingLocation === null) root.savedLocation = Model.parseSavedLocation(text())
+    onLoadFailed: if (root.pendingLocation === null) root.savedLocation = Model.emptyLocation()
   }
 
   property Timer rereadSavedLocationAfterStartup: Timer {
@@ -54,123 +52,113 @@ QtObject {
     unit: root.unit,
     locale: Qt.locale().name,
     today: Qt.formatDate(new Date(), "yyyy-MM-dd"),
-    formatWeekday: function (date) {
-      return Qt.formatDate(date, "dddd");
-    }
+    formatWeekday: function(date) { return Qt.formatDate(date, "dddd") }
   })
   property string unit: ""
   property var refreshInterval: 15
   readonly property int refreshMinutes: Math.max(1, parseInt(refreshInterval, 10) || 15)
 
-  signal saveCompleted
+  signal saveCompleted()
 
   function reloadLocation() {
-    locationFile.reload();
+    locationFile.reload()
   }
 
   function resetFetchRetries() {
-    conditionsRetries = 0;
-    forecastRetries = 0;
+    conditionsRetries = 0
+    forecastRetries = 0
   }
 
   function stopInFlightFetches() {
-    conditionsProc.running = false;
-    forecastProc.running = false;
+    conditionsProc.running = false
+    forecastProc.running = false
   }
 
   function refresh() {
-    resetFetchRetries();
-    if (!conditionsProc.running)
-      conditionsProc.running = true;
-    if (root.locationQuery === "" && !detectedPlaceProc.running)
-      detectedPlaceProc.running = true;
-    fetchForecast(root.lastGoodConditions);
+    resetFetchRetries()
+    if (!conditionsProc.running) conditionsProc.running = true
+    if (root.locationQuery === "" && !detectedPlaceProc.running) detectedPlaceProc.running = true
+    fetchForecast(root.lastGoodConditions)
   }
 
   function fetchForecast(conditions) {
-    if (forecastProc.running)
-      return;
-    var coordinates = Model.forecastCoordinates(root.savedLocation, conditions || root.lastGoodConditions);
-    if (!coordinates)
-      return;
-    forecastProc.command = ["curl", "-fsS", "--max-time", "5", Model.forecastUrl(coordinates)];
-    forecastProc.running = true;
+    if (forecastProc.running) return
+    var coordinates = Model.forecastCoordinates(root.savedLocation, conditions || root.lastGoodConditions)
+    if (!coordinates) return
+    forecastProc.command = ["curl", "-fsS", "--max-time", "5", Model.forecastUrl(coordinates)]
+    forecastProc.running = true
   }
 
   function beginLocationSearch() {
-    cancelLocationSearch();
-    searchingLocation = true;
+    cancelLocationSearch()
+    searchingLocation = true
   }
 
   function cancelLocationSearch() {
-    searchingLocation = false;
-    locationSearchDebounce.stop();
-    queuedSearchQuery = "";
-    locationSuggestions = [];
+    searchingLocation = false
+    locationSearchDebounce.stop()
+    queuedSearchQuery = ""
+    locationSuggestions = []
   }
 
   function commitLocation(text, selectedIndex) {
-    var location = Model.commitLocation(text, locationSuggestions, selectedIndex);
-    saveLocation(location);
+    var location = Model.commitLocation(text, locationSuggestions, selectedIndex)
+    saveLocation(location)
   }
 
   function clearLocation() {
-    saveLocation(Model.emptyLocation());
+    saveLocation(Model.emptyLocation())
   }
 
   function pickSuggestion(suggestion) {
-    if (!suggestion)
-      return;
-    saveLocation(suggestion);
+    if (!suggestion) return
+    saveLocation(suggestion)
   }
 
   function saveLocation(location) {
-    if (pendingLocation !== null)
-      return;
+    if (pendingLocation !== null) return
     pendingLocation = {
       name: location.name,
       latitude: location.latitude,
       longitude: location.longitude
-    };
-    persistLocation(pendingLocation);
+    }
+    persistLocation(pendingLocation)
   }
 
   function completeLocationSave() {
-    if (pendingLocation === null)
-      return;
-    pendingLocation = null;
-    cancelLocationSearch();
-    saveCompleted();
+    if (pendingLocation === null) return
+    pendingLocation = null
+    cancelLocationSearch()
+    saveCompleted()
   }
 
   function persistLocation(location) {
     if (location.name && location.latitude !== null && location.longitude !== null)
-      saveLocationProc.command = ["omarchy-weather-location", "--set", location.name, location.latitude + "," + location.longitude];
+      saveLocationProc.command = ["omarchy-weather-location", "--set", location.name, location.latitude + "," + location.longitude]
     else if (location.name)
-      saveLocationProc.command = ["omarchy-weather-location", "--set", location.name];
+      saveLocationProc.command = ["omarchy-weather-location", "--set", location.name]
     else
-      saveLocationProc.command = ["omarchy-weather-location", "--clear"];
-    saveLocationProc.running = true;
+      saveLocationProc.command = ["omarchy-weather-location", "--clear"]
+    saveLocationProc.running = true
   }
 
   function searchLocation(text) {
-    queuedSearchQuery = String(text || "").trim();
-    locationSearchDebounce.restart();
+    queuedSearchQuery = String(text || "").trim()
+    locationSearchDebounce.restart()
   }
 
   function queueLocationSearch() {
     if (!searchingLocation || queuedSearchQuery.length < 2) {
-      locationSuggestions = [];
-      return;
+      locationSuggestions = []
+      return
     }
-    if (!locationSearchProc.running)
-      fetchQueuedLocationSearch();
+    if (!locationSearchProc.running) fetchQueuedLocationSearch()
   }
 
   function fetchQueuedLocationSearch() {
-    inFlightSearchQuery = queuedSearchQuery;
-    locationSearchProc.command = ["curl", "-fsS", "--max-time", "5", Model.locationSearchUrl(inFlightSearchQuery)];
-    locationSearchProc.running = true;
+    inFlightSearchQuery = queuedSearchQuery
+    locationSearchProc.command = ["curl", "-fsS", "--max-time", "5", Model.locationSearchUrl(inFlightSearchQuery)]
+    locationSearchProc.running = true
   }
 
   property Process conditionsProc: Process {
@@ -178,42 +166,39 @@ QtObject {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var raw = String(text || "").trim();
+        var raw = String(text || "").trim()
         if (!raw) {
-          root.retryConditionsFetch();
-          return;
+          root.retryConditionsFetch()
+          return
         }
         try {
-          var parsed = JSON.parse(raw);
-          root.lastGoodConditions = parsed;
-          root.conditionsRetries = 0;
+          var parsed = JSON.parse(raw)
+          root.lastGoodConditions = parsed
+          root.conditionsRetries = 0
           if (!root.hasSavedCoordinates)
-            root.fetchForecast(parsed);
+            root.fetchForecast(parsed)
         } catch (e) {
-          root.retryConditionsFetch();
+          root.retryConditionsFetch()
         }
       }
     }
   }
 
   function retryConditionsFetch() {
-    if (conditionsRetries >= 3)
-      return;
-    conditionsRetries++;
-    conditionsRetryTimer.restart();
+    if (conditionsRetries >= 3) return
+    conditionsRetries++
+    conditionsRetryTimer.restart()
   }
 
   property Timer conditionsRetryTimer: Timer {
     interval: 2500
-    onTriggered: if (!root.conditionsProc.running)
-      root.conditionsProc.running = true
+    onTriggered: if (!root.conditionsProc.running) root.conditionsProc.running = true
   }
 
   function retryForecastFetch() {
-    if (forecastRetries >= 3)
-      return;
-    forecastRetries++;
-    forecastRetryTimer.restart();
+    if (forecastRetries >= 3) return
+    forecastRetries++
+    forecastRetryTimer.restart()
   }
 
   property Timer forecastRetryTimer: Timer {
@@ -225,17 +210,17 @@ QtObject {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var raw = String(text || "").trim();
+        var raw = String(text || "").trim()
         if (!raw) {
-          root.retryForecastFetch();
-          return;
+          root.retryForecastFetch()
+          return
         }
         try {
-          var parsed = JSON.parse(raw);
-          root.lastGoodForecast = parsed;
-          root.forecastRetries = 0;
+          var parsed = JSON.parse(raw)
+          root.lastGoodForecast = parsed
+          root.forecastRetries = 0
         } catch (e) {
-          root.retryForecastFetch();
+          root.retryForecastFetch()
         }
       }
     }
@@ -245,9 +230,9 @@ QtObject {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        root.locationSuggestions = root.searchingLocation && root.queuedSearchQuery === root.inFlightSearchQuery ? Model.parseLocationSuggestions(text) : [];
-        if (root.queuedSearchQuery !== root.inFlightSearchQuery)
-          Qt.callLater(root.queueLocationSearch);
+        root.locationSuggestions = root.searchingLocation && root.queuedSearchQuery === root.inFlightSearchQuery
+          ? Model.parseLocationSuggestions(text) : []
+        if (root.queuedSearchQuery !== root.inFlightSearchQuery) Qt.callLater(root.queueLocationSearch)
       }
     }
   }
@@ -258,19 +243,18 @@ QtObject {
   }
 
   property Process saveLocationProc: Process {
-    onExited: function (exitCode, exitStatus) {
-      if (root.pendingLocation === null)
-        return;
+    onExited: function(exitCode, exitStatus) {
+      if (root.pendingLocation === null) return
       if (exitCode !== 0) {
-        root.pendingLocation = null;
-        return;
+        root.pendingLocation = null
+        return
       }
-      root.savedLocation = root.pendingLocation;
+      root.savedLocation = root.pendingLocation
       if (root.pendingLocation.name === "")
-        root.detectedPlaceName = "";
-      root.completeLocationSave();
-      root.locationFile.reload();
-      Qt.callLater(root.refresh);
+        root.detectedPlaceName = ""
+      root.completeLocationSave()
+      root.locationFile.reload()
+      Qt.callLater(root.refresh)
     }
   }
 
@@ -279,7 +263,7 @@ QtObject {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        root.detectedPlaceName = Model.parseDetectedPlaceName(text);
+        root.detectedPlaceName = Model.parseDetectedPlaceName(text)
       }
     }
   }
@@ -293,7 +277,7 @@ QtObject {
   }
 
   function showStatus() {
-    statusProc.running = true;
+    statusProc.running = true
   }
 
   property Process statusProc: Process {
