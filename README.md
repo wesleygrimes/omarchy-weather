@@ -18,12 +18,12 @@ omarchy plugin remove wesgrimes.weather
 
 ## Development
 
-From this directory:
+From this directory, not the installed plugin:
 
 ```bash
 mise format      # write JS
 mise check       # tests, validate, fail if unformatted
-mise dev         # watch files and hot-reload Quickshell
+mise dev         # install wesgrimes.weather-dev, reload on save, remove on exit
 mise screenshot  # open the popup and save a PNG under tmp/
 ```
 

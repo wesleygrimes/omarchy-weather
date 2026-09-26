@@ -1,7 +1,7 @@
 # `mise tasks` lists jobs. Each runs as `mise <job>`.
 
 [tasks.dev]
-description = "Watch plugin files and hot-reload Quickshell on save"
+description = "Install wesgrimes.weather-dev, reload on save, remove on exit"
 run = "bash scripts/dev.sh"
 
 [tasks.screenshot]

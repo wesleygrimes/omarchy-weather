@@ -1,14 +1,15 @@
 # Contributing
 
-This checkout is the live plugin (`~/.config/omarchy/plugins/wesgrimes.weather`).
+This checkout is the source (`~/Work/omarchy-weather`).
+The installed plugin is `~/.config/omarchy/plugins/wesgrimes.weather`.
 GitHub repo: [wesleygrimes/omarchy-weather](https://github.com/wesleygrimes/omarchy-weather).
 The plugin id is `wesgrimes.weather`.
-Saved QML/JS reloads in the Omarchy shell; `mise dev` forces a rescan if it does not.
+Edits here do not reload the bar. `mise dev` installs `wesgrimes.weather-dev`, reloads it on save, and removes it on exit.
 
 ```bash
 mise format      # write JS
 mise check       # tests, validate, fail if unformatted
-mise dev         # watch files and hot-reload Quickshell
+mise dev         # install wesgrimes.weather-dev, reload on save, remove on exit
 mise screenshot  # open the popup; PNG lands in gitignored tmp/
 ```
 
