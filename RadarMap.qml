@@ -3,17 +3,17 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtLocation
 import QtPositioning
+import MapLibre 3.0
 
 Item {
   id: root
   property var radar: null
   property var coordinates: null
-  property string styleName: "fiord"
+  property string styleName: "dark"
   property string locationName: ""
   property color foreground
   property string fontFamily: ""
   property int labelSize
-  property bool mapActive: true
   property int displayedIndex: -1
   property int queueIndex: -1
   property int inFlight: 0
@@ -22,10 +22,6 @@ Item {
     isFinite(Number(coordinates.longitude))
   clip: true
 
-  onStyleNameChanged: {
-    mapActive = false
-    mapReload.restart()
-  }
   onCenterKeyChanged: displayedIndex = -1
   Component.onCompleted: resetFrames()
 
@@ -63,12 +59,6 @@ Item {
   }
 
   Timer {
-    id: mapReload
-    interval: 0
-    onTriggered: root.mapActive = true
-  }
-
-  Timer {
     id: queueTimer
     interval: 0
     onTriggered: root.fillQueue()
@@ -83,20 +73,56 @@ Item {
 
     Loader {
       anchors.fill: parent
-      active: root.mapActive && root.hasCoordinates
+      active: root.hasCoordinates
       sourceComponent: Component {
         Map {
+          id: baseMap
           anchors.fill: parent
           plugin: Plugin {
             name: "maplibre"
             PluginParameter {
               name: "maplibre.map.styles"
-              value: "https://tiles.openfreemap.org/styles/" + root.styleName
+              value: "https://tiles.openfreemap.org/styles/dark,https://tiles.openfreemap.org/styles/positron"
             }
           }
           center: QtPositioning.coordinate(root.coordinates.latitude, root.coordinates.longitude)
           zoomLevel: 8
           copyrightsVisible: false
+          MapLibre.style: landBoundaries
+          // Keep the native map and its style attachment alive across theme changes.
+          function selectStyle() {
+            if (supportedMapTypes.length < 2) return
+            landBoundaries.clearParameters()
+            if (root.styleName === "dark") {
+              landBoundaries.addParameter(stateBoundary)
+              landBoundaries.addParameter(countryBoundaryLow)
+              landBoundaries.addParameter(countryBoundaryHigh)
+            }
+            activeMapType = supportedMapTypes[root.styleName === "dark" ? 0 : 1]
+          }
+          Component.onCompleted: selectStyle()
+          onSupportedMapTypesChanged: selectStyle()
+          Connections {
+            target: root
+            function onStyleNameChanged() { baseMap.selectStyle() }
+          }
+
+          Style { id: landBoundaries }
+          FilterParameter {
+            id: stateBoundary
+            styleId: "boundary_state"
+            expression: ["all", ["==", ["get", "admin_level"], 4], ["!=", ["get", "maritime"], 1]]
+          }
+          FilterParameter {
+            id: countryBoundaryLow
+            styleId: "boundary_country_z0-4"
+            expression: ["all", ["==", ["get", "admin_level"], 2], ["!", ["has", "claimed_by"]], ["!=", ["get", "maritime"], 1]]
+          }
+          FilterParameter {
+            id: countryBoundaryHigh
+            styleId: "boundary_country_z5-"
+            expression: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]]
+          }
         }
       }
     }

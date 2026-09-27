@@ -473,8 +473,9 @@ Panel {
 
         Row {
           id: forecastRow
+          width: astronomyRow.width
           anchors.horizontalCenter: parent.horizontalCenter
-          spacing: Style.space(44)
+          spacing: astronomyRow.spacing
 
           Repeater {
             model: root.forecastDays
@@ -483,9 +484,12 @@ Panel {
               id: forecastDelegate
               required property var modelData
               required property int index
-              spacing: Style.space(10)
+              width: astronomyRow.columnWidth
+              spacing: Style.space(4)
 
               Text {
+                width: forecastDelegate.index === 2 ? moonGlyph.width : sunriseGlyph.width
+                horizontalAlignment: Text.AlignHCenter
                 textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 text: forecastDelegate.modelData.icon
@@ -545,13 +549,15 @@ Panel {
         height: Style.space(64)
 
         Row {
-          anchors.fill: parent
-          anchors.leftMargin: Style.space(20)
-          anchors.rightMargin: Style.space(20)
-          spacing: Style.space(8)
+          id: astronomyRow
+          readonly property real columnWidth: Math.min(Style.space(132), width / 3)
+          width: mapFrame.width
+          height: parent.height
+          anchors.horizontalCenter: parent.horizontalCenter
+          spacing: (width - columnWidth * 3) / 2
 
           Item {
-            width: (parent.width - Style.space(16)) / 3
+            width: astronomyRow.columnWidth
             height: parent.height
             SunEventGlyph {
               id: sunriseGlyph
@@ -585,7 +591,7 @@ Panel {
           }
 
           Item {
-            width: (parent.width - Style.space(16)) / 3
+            width: astronomyRow.columnWidth
             height: parent.height
             SunEventGlyph {
               id: sunsetGlyph
@@ -619,7 +625,7 @@ Panel {
           }
 
           Item {
-            width: (parent.width - Style.space(16)) / 3
+            width: astronomyRow.columnWidth
             height: parent.height
             MoonGlyph {
               id: moonGlyph
@@ -766,6 +772,65 @@ Panel {
           }
 
           Rectangle {
+            id: attribution
+            property bool expanded: false
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: Style.space(6)
+            width: expanded ? Math.min(mapFrame.width - Style.space(12), Style.space(400)) : Style.space(26)
+            height: Style.space(26)
+            radius: Style.cornerRadius
+            color: Color.background
+            visible: radarMapLoader.status === Loader.Ready && radarMapLoader.active
+
+            function toggle() { expanded = !expanded }
+            onVisibleChanged: expanded = false
+            Text {
+              id: attributionLinks
+              visible: attribution.expanded
+              anchors.left: parent.left
+              anchors.right: attributionToggle.left
+              anchors.margins: Style.space(6)
+              anchors.verticalCenter: parent.verticalCenter
+              textFormat: Text.StyledText
+              text: '<a href="https://openfreemap.org/">OpenFreeMap</a> · <a href="https://openmaptiles.org/">OpenMapTiles</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · <a href="https://www.rainviewer.com/">RainViewer</a>'
+              linkColor: Color.foreground
+              color: Color.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+              elide: Text.ElideRight
+              onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+            }
+            Rectangle {
+              id: attributionToggle
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              width: Style.space(26)
+              height: width
+              radius: Style.cornerRadius
+              color: activeFocus ? Style.hoverFillFor(root.bar.foreground, Color.accent) : "transparent"
+              activeFocusOnTab: true
+              Accessible.role: Accessible.Button
+              Accessible.name: attribution.expanded ? "Hide map attribution" : "Show map attribution"
+              Accessible.onPressAction: attribution.toggle()
+              Keys.onSpacePressed: attribution.toggle()
+              Keys.onReturnPressed: attribution.toggle()
+              Text {
+                anchors.centerIn: parent
+                text: attribution.expanded ? "×" : "ⓘ"
+                color: Color.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.body
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: attribution.toggle()
+              }
+            }
+          }
+
+          Rectangle {
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: Style.space(8)
@@ -863,20 +928,6 @@ Panel {
           color: Qt.darker(root.bar.foreground, 1.5)
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.bodySmall
-        }
-
-        Text {
-          width: parent.width - Style.space(32)
-          anchors.horizontalCenter: parent.horizontalCenter
-          textFormat: Text.StyledText
-          text: '<a href="https://openfreemap.org/">OpenFreeMap</a> · © <a href="https://openmaptiles.org/">OpenMapTiles</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · Radar <a href="https://www.rainviewer.com/">RainViewer</a>'
-          linkColor: Qt.darker(root.bar.foreground, 1.4)
-          color: Qt.darker(root.bar.foreground, 1.5)
-          font.family: root.bar.fontFamily
-          font.pixelSize: Style.font.bodySmall
-          horizontalAlignment: Text.AlignRight
-          wrapMode: Text.WordWrap
-          onLinkActivated: function(link) { Qt.openUrlExternally(link) }
         }
       }
     }
