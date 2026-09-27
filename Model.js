@@ -23,10 +23,19 @@ function parseSavedLocation(raw) {
 }
 
 function hasCoordinates(location) {
+  if (!location) return false;
+  if (location.latitude === null || location.longitude === null) return false;
+  if (String(location.latitude).trim() === "" || String(location.longitude).trim() === "")
+    return false;
+  var latitude = Number(location.latitude);
+  var longitude = Number(location.longitude);
   return (
-    !!location &&
-    !isNaN(parseFloat(String(location.latitude))) &&
-    !isNaN(parseFloat(String(location.longitude)))
+    isFinite(latitude) &&
+    isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
   );
 }
 
@@ -83,11 +92,19 @@ function forecastCoordinates(location, conditions) {
     };
 
   var area = reportArea(conditions);
-  if (!area) return null;
-  var lat = parseFloat(String(area.latitude || ""));
-  var lon = parseFloat(String(area.longitude || ""));
-  if (isNaN(lat) || isNaN(lon)) return null;
-  return { latitude: lat, longitude: lon };
+  if (!hasCoordinates(area)) return null;
+  return { latitude: Number(area.latitude), longitude: Number(area.longitude) };
+}
+
+function reportTodayDate(report, fallback) {
+  var days = report && report.weather ? report.weather : [];
+  for (var i = 0; i < days.length; i++) {
+    if (days[i] && days[i].date === fallback) return fallback;
+  }
+  var date = days.length > 0 ? String(days[0].date || "") : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fallback;
+  var difference = Math.abs(Date.parse(date + "T00:00:00Z") - Date.parse(fallback + "T00:00:00Z"));
+  return difference <= 86400000 ? date : fallback;
 }
 
 function reportArea(report) {
@@ -390,7 +407,7 @@ function buildView(input) {
     useImperial,
     input.formatWeekday
   );
-  var astronomy = reportAstronomy(conditions, input.today);
+  var astronomy = reportAstronomy(conditions, reportTodayDate(conditions, input.today));
   var current = null;
   if (currentRaw) {
     current = {
@@ -415,6 +432,7 @@ function buildView(input) {
     current: current,
     sun: buildSun(astronomy),
     moon: buildMoon(astronomy),
+    coordinates: forecastCoordinates(location, conditions),
     forecast: forecast,
   };
 }
@@ -513,6 +531,7 @@ if (typeof module !== "undefined") {
     locationSearchUrl: locationSearchUrl,
     parseDetectedPlaceName: parseDetectedPlaceName,
     forecastCoordinates: forecastCoordinates,
+    reportTodayDate: reportTodayDate,
     parseLocationSuggestions: parseLocationSuggestions,
     commitLocation: commitLocation,
     buildView: buildView,

@@ -54,6 +54,26 @@ assert.strictEqual(
   false,
   "empty location has no coordinates"
 );
+assert.strictEqual(
+  weather.hasCoordinates({ latitude: "", longitude: "" }),
+  false,
+  "blank coordinates are missing"
+);
+assert.strictEqual(
+  weather.hasCoordinates({ latitude: "  ", longitude: 0 }),
+  false,
+  "whitespace is missing"
+);
+assert.strictEqual(
+  weather.hasCoordinates({ latitude: 89.9, longitude: 0 }),
+  true,
+  "polar weather locations stay valid"
+);
+assert.strictEqual(
+  weather.hasCoordinates({ latitude: 91, longitude: 0 }),
+  false,
+  "rejects invalid latitude"
+);
 
 equal(
   weather.parseDetectedPlaceName("Stokesdale, North Carolina, United States"),
@@ -73,6 +93,20 @@ equal(
   }),
   { latitude: 36.237, longitude: -79.98 },
   "falls back to the conditions area"
+);
+equal(
+  weather.forecastCoordinates(weather.emptyLocation(), {
+    nearest_area: [{ latitude: 0, longitude: "0" }],
+  }),
+  { latitude: 0, longitude: 0 },
+  "accepts a report area at zero degrees"
+);
+equal(
+  weather.forecastCoordinates(weather.emptyLocation(), {
+    nearest_area: [{ latitude: "36.2junk", longitude: "-79.9" }],
+  }),
+  null,
+  "rejects partial numeric report coordinates"
 );
 equal(
   weather.forecastCoordinates(weather.emptyLocation(), {}),

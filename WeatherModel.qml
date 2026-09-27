@@ -12,10 +12,15 @@ QtObject {
   property var savedLocation: Model.emptyLocation()
   readonly property string locationQuery: Model.locationQuery(savedLocation)
   readonly property bool hasSavedCoordinates: Model.hasCoordinates(savedLocation)
+  property bool conditionsDraining: false
+  property bool forecastDraining: false
 
   onLocationQueryChanged: {
     resetFetchRetries()
     stopInFlightFetches()
+    lastGoodConditions = null
+    lastGoodForecast = null
+    detectedPlaceName = ""
     Qt.callLater(refresh)
   }
 
@@ -67,25 +72,37 @@ QtObject {
   function resetFetchRetries() {
     conditionsRetries = 0
     forecastRetries = 0
+    conditionsRetryTimer.stop()
+    forecastRetryTimer.stop()
   }
 
   function stopInFlightFetches() {
-    conditionsProc.running = false
-    forecastProc.running = false
+    if (conditionsProc.running) {
+      conditionsDraining = true
+      conditionsProc.running = false
+    }
+    if (forecastProc.running) {
+      forecastDraining = true
+      forecastProc.running = false
+    }
   }
 
   function refresh() {
     resetFetchRetries()
-    if (!conditionsProc.running) conditionsProc.running = true
+    if (!conditionsProc.running && !conditionsDraining) {
+      conditionsProc.requestQuery = locationQuery
+      conditionsProc.running = true
+    }
     if (root.locationQuery === "" && !detectedPlaceProc.running) detectedPlaceProc.running = true
     fetchForecast(root.lastGoodConditions)
   }
 
   function fetchForecast(conditions) {
-    if (forecastProc.running) return
+    if (forecastProc.running || forecastDraining) return
     var coordinates = Model.forecastCoordinates(root.savedLocation, conditions || root.lastGoodConditions)
     if (!coordinates) return
     forecastProc.command = ["curl", "-fsS", "--max-time", "5", Model.forecastUrl(coordinates)]
+    forecastProc.requestQuery = locationQuery
     forecastProc.running = true
   }
 
@@ -162,10 +179,19 @@ QtObject {
   }
 
   property Process conditionsProc: Process {
+    property string requestQuery: ""
     command: ["curl", "-fsS", "--max-time", "10", Model.conditionsUrl(root.locationQuery)]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        if (root.conditionsDraining) {
+          root.conditionsDraining = false
+          Qt.callLater(root.refresh)
+          return
+        }
+        // qmllint disable missing-property
+        if (root.conditionsProc.requestQuery !== root.locationQuery) return
+        // qmllint enable missing-property
         var raw = String(text || "").trim()
         if (!raw) {
           root.retryConditionsFetch()
@@ -207,9 +233,18 @@ QtObject {
   }
 
   property Process forecastProc: Process {
+    property string requestQuery: ""
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        if (root.forecastDraining) {
+          root.forecastDraining = false
+          Qt.callLater(root.refresh)
+          return
+        }
+        // qmllint disable missing-property
+        if (root.forecastProc.requestQuery !== root.locationQuery) return
+        // qmllint enable missing-property
         var raw = String(text || "").trim()
         if (!raw) {
           root.retryForecastFetch()

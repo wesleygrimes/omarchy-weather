@@ -77,12 +77,31 @@ Panel {
   readonly property string locationPinGlyph: ""
   readonly property string clearLocationGlyph: "✕"
   readonly property string savingLocationGlyph: "󰦖"
+  property bool mapExpanded: false
+  readonly property string radarStyle: (Color.background.r * 0.2126 + Color.background.g * 0.7152 + Color.background.b * 0.0722) < 0.45
+    ? "dark" : "positron"
+  readonly property var mapCoordinates: view && view.coordinates ? view.coordinates : null
 
   WeatherModel {
     id: weatherModel
     unit: root.setting("unit", "")
     refreshInterval: root.setting("refreshMinutes", 15)
     onSaveCompleted: root.cancelEditingLocation()
+  }
+
+  RadarModel {
+    id: radarModel
+    active: root.opened
+    coordinates: root.mapCoordinates
+  }
+
+  function radarTime(timestamp) {
+    return timestamp ? Qt.formatTime(new Date(timestamp * 1000), "HH:mm") : "--:--"
+  }
+
+  function installMapSupport() {
+    if (!root.bar) return
+    root.bar.run("omarchy-launch-floating-terminal-with-presentation 'omarchy pkg add maplibre-native-qt qt6-location && pacman -Qq maplibre-native-qt qt6-location >/dev/null && omarchy restart shell'")
   }
 
   function refresh() {
@@ -509,6 +528,355 @@ Panel {
               }
             }
           }
+        }
+      }
+
+      Rectangle {
+        visible: !!root.current
+        width: parent.width
+        height: Style.spacing.hairline
+        color: root.bar.foreground
+        opacity: 0.12
+      }
+
+      Item {
+        visible: !!root.current
+        width: parent.width
+        height: Style.space(64)
+
+        Row {
+          anchors.fill: parent
+          anchors.leftMargin: Style.space(20)
+          anchors.rightMargin: Style.space(20)
+          spacing: Style.space(8)
+
+          Item {
+            width: (parent.width - Style.space(16)) / 3
+            height: parent.height
+            SunEventGlyph {
+              id: sunriseGlyph
+              rising: true
+              foreground: root.bar.foreground
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              opacity: 0.75
+            }
+            Column {
+              anchors.left: sunriseGlyph.right
+              anchors.leftMargin: Style.space(4)
+              anchors.top: parent.top
+              anchors.topMargin: Style.space(9)
+              spacing: Style.space(5)
+              Text {
+                text: "SUNRISE"
+                color: Qt.darker(root.bar.foreground, 1.5)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                font.letterSpacing: 1
+              }
+              Text {
+                textFormat: Text.PlainText
+                text: root.view && root.view.sun && root.view.sun.sunrise ? root.view.sun.sunrise : "—"
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.body
+              }
+            }
+          }
+
+          Item {
+            width: (parent.width - Style.space(16)) / 3
+            height: parent.height
+            SunEventGlyph {
+              id: sunsetGlyph
+              rising: false
+              foreground: root.bar.foreground
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              opacity: 0.75
+            }
+            Column {
+              anchors.left: sunsetGlyph.right
+              anchors.leftMargin: Style.space(4)
+              anchors.top: parent.top
+              anchors.topMargin: Style.space(9)
+              spacing: Style.space(5)
+              Text {
+                text: "SUNSET"
+                color: Qt.darker(root.bar.foreground, 1.5)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                font.letterSpacing: 1
+              }
+              Text {
+                textFormat: Text.PlainText
+                text: root.view && root.view.sun && root.view.sun.sunset ? root.view.sun.sunset : "—"
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.body
+              }
+            }
+          }
+
+          Item {
+            width: (parent.width - Style.space(16)) / 3
+            height: parent.height
+            MoonGlyph {
+              id: moonGlyph
+              width: 34
+              height: 34
+              phase: root.view && root.view.moon ? root.view.moon.phase : ""
+              illumination: root.view && root.view.moon ? root.view.moon.illumination : ""
+              foreground: root.bar.foreground
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              opacity: 0.75
+            }
+            Column {
+              anchors.left: moonGlyph.right
+              anchors.leftMargin: Style.space(4)
+              anchors.top: parent.top
+              anchors.topMargin: Style.space(9)
+              spacing: Style.space(5)
+              Text {
+                text: "MOON"
+                color: Qt.darker(root.bar.foreground, 1.5)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                font.letterSpacing: 1
+              }
+              Text {
+                width: Style.space(94)
+                wrapMode: Text.WordWrap
+                maximumLineCount: 2
+                textFormat: Text.PlainText
+                text: root.view && root.view.moon && root.view.moon.phase ? root.view.moon.phase : "—"
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+            }
+          }
+        }
+      }
+
+      Rectangle {
+        visible: !!root.current
+        width: parent.width
+        height: Style.spacing.hairline
+        color: root.bar.foreground
+        opacity: 0.12
+      }
+
+      Column {
+        visible: !!root.current
+        width: parent.width
+        spacing: Style.space(9)
+
+        Item {
+          id: radarHeader
+          width: parent.width - Style.space(32)
+          height: Style.space(20)
+          anchors.horizontalCenter: parent.horizontalCenter
+          Text {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: "RADAR"
+            color: root.bar.foreground
+            font.family: root.bar.fontFamily
+            font.bold: true
+            font.pixelSize: Style.font.body
+            font.letterSpacing: 1
+          }
+          Text {
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: radarModel.live ? root.radarTime(radarModel.selectedFrame.time) + "  ·  ● LIVE" : radarModel.loading ? "LOADING" :
+              radarModel.selectedFrame && !radarModel.selectedReady ?
+                (radarModel.failedUrls[radarModel.selectedFrame.url] ? "FRAME UNAVAILABLE" : "LOADING FRAME") :
+                radarModel.selectedFrame ? root.radarTime(radarModel.selectedFrame.time) : ""
+            color: radarModel.live ? Color.accent : Qt.darker(root.bar.foreground, 1.5)
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            font.letterSpacing: 1
+          }
+        }
+
+        Rectangle {
+          id: mapFrame
+          width: parent.width - Style.space(32)
+          height: root.mapExpanded ? Style.space(330) : Style.space(235)
+          anchors.horizontalCenter: parent.horizontalCenter
+          color: "transparent"
+          border.color: root.bar.foreground
+          border.width: 1
+          radius: Math.min(Style.cornerRadius, 3)
+          clip: true
+
+          Loader {
+            id: radarMapLoader
+            anchors.fill: parent
+            anchors.margins: 1
+            active: radarModel.nativeReady && root.opened && !!root.mapCoordinates
+            source: "RadarMap.qml"
+            onLoaded: {
+              item.radar = radarModel
+              item.coordinates = Qt.binding(function() { return root.mapCoordinates })
+              item.styleName = Qt.binding(function() { return root.radarStyle })
+              item.locationName = Qt.binding(function() { return root.view ? root.view.location.name : "" })
+              item.foreground = Qt.binding(function() { return root.bar.foreground })
+              item.fontFamily = Qt.binding(function() { return root.bar.fontFamily })
+              item.labelSize = Style.font.caption
+            }
+          }
+
+          Column {
+            visible: !radarModel.nativeReady || !root.mapCoordinates || radarMapLoader.status === Loader.Error
+            anchors.centerIn: parent
+            spacing: Style.space(9)
+            Text {
+              anchors.horizontalCenter: parent.horizontalCenter
+              text: !radarModel.nativeReady ? "Map support is ready to install" :
+                !root.mapCoordinates ? "Map location unavailable" : "Map support could not load"
+              color: Qt.darker(root.bar.foreground, 1.4)
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.bodySmall
+            }
+            Rectangle {
+              visible: !radarModel.nativeReady
+              anchors.horizontalCenter: parent.horizontalCenter
+              width: installLabel.implicitWidth + Style.space(18)
+              height: installLabel.implicitHeight + Style.space(10)
+              radius: Style.cornerRadius
+              color: Style.hoverFillFor(root.bar.foreground, Color.accent)
+              Text {
+                id: installLabel
+                anchors.centerIn: parent
+                text: "Install map support"
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.installMapSupport()
+              }
+            }
+          }
+
+          Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: Style.space(8)
+            width: Style.space(28)
+            height: width
+            color: Style.hoverFillFor(root.bar.foreground, Color.accent)
+            radius: Style.cornerRadius
+            Text {
+              anchors.centerIn: parent
+              text: root.mapExpanded ? "↙" : "⤢"
+              color: root.bar.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.body
+            }
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.mapExpanded = !root.mapExpanded
+            }
+          }
+        }
+
+        Item {
+          id: radarControls
+          width: parent.width - Style.space(32)
+          height: Style.space(24)
+          anchors.horizontalCenter: parent.horizontalCenter
+
+          Text {
+            id: playButton
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: radarModel.playing ? "Ⅱ" : "▶"
+            color: root.bar.foreground
+            opacity: radarModel.frames.length > 1 ? 1 : 0.4
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.body
+            MouseArea {
+              anchors.fill: parent
+              enabled: radarModel.frames.length > 1
+              cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+              onClicked: radarModel.togglePlayback()
+            }
+          }
+
+          Rectangle {
+            id: scrubTrack
+            anchors.left: playButton.right
+            anchors.leftMargin: Style.space(16)
+            anchors.right: selectedRadarTime.left
+            anchors.rightMargin: Style.space(16)
+            anchors.verticalCenter: parent.verticalCenter
+            height: 2
+            color: root.bar.foreground
+            opacity: 0.45
+            Rectangle {
+              width: Style.space(9)
+              height: width
+              radius: width / 2
+              color: root.bar.foreground
+              x: radarModel.frames.length > 1 ?
+                (radarModel.selectedIndex / (radarModel.frames.length - 1)) * (scrubTrack.width - width) : 0
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            MouseArea {
+              anchors.fill: parent
+              anchors.topMargin: -Style.space(10)
+              anchors.bottomMargin: -Style.space(10)
+              enabled: radarModel.frames.length > 1
+              cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+              onPressed: function(mouse) {
+                radarModel.select(Math.round(Math.max(0, Math.min(1, mouse.x / width)) * (radarModel.frames.length - 1)))
+              }
+              onPositionChanged: function(mouse) {
+                if (pressed) radarModel.select(Math.round(Math.max(0, Math.min(1, mouse.x / width)) * (radarModel.frames.length - 1)))
+              }
+            }
+          }
+
+          Text {
+            id: selectedRadarTime
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: radarModel.selectedFrame ? root.radarTime(radarModel.selectedFrame.time) : "--:--"
+            color: root.bar.foreground
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.bodySmall
+          }
+        }
+
+        Text {
+          visible: radarModel.nativeReady && radarModel.error !== ""
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: radarModel.error
+          color: Qt.darker(root.bar.foreground, 1.5)
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.bodySmall
+        }
+
+        Text {
+          width: parent.width - Style.space(32)
+          anchors.horizontalCenter: parent.horizontalCenter
+          textFormat: Text.StyledText
+          text: '<a href="https://openfreemap.org/">OpenFreeMap</a> · © <a href="https://openmaptiles.org/">OpenMapTiles</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> · Radar <a href="https://www.rainviewer.com/">RainViewer</a>'
+          linkColor: Qt.darker(root.bar.foreground, 1.4)
+          color: Qt.darker(root.bar.foreground, 1.5)
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          horizontalAlignment: Text.AlignRight
+          wrapMode: Text.WordWrap
+          onLinkActivated: function(link) { Qt.openUrlExternally(link) }
         }
       }
     }

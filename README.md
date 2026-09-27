@@ -1,6 +1,7 @@
 # Weather
 
-Live weather on the [Omarchy](https://omarchy.org) bar. Click the pill for the forecast.
+Live weather on the [Omarchy](https://omarchy.org) bar. Click the pill for the forecast,
+sunrise, sunset, moon phase, and animated rain radar.
 
 ## Install
 
@@ -9,6 +10,21 @@ omarchy plugin add https://github.com/wesleygrimes/omarchy-weather.git --enable
 ```
 
 Move it with `omarchy bar move wesgrimes.weather --section right`.
+
+Radar needs the native map packages:
+
+```sh
+omarchy pkg add maplibre-native-qt qt6-location
+```
+
+The popup's **Install map support** button opens the package installer in a terminal
+and restarts the shell after installation succeeds. Weather, forecast, and astronomy
+work without these packages. No browser, Python environment, or API key is required.
+
+The map uses [OpenFreeMap](https://openfreemap.org/). Precipitation comes from
+[RainViewer](https://www.rainviewer.com/) and shows the last available hour of radar
+history. RainViewer's free API is for personal and educational use. The latest frame
+is an observation, not a forecast; its time appears beside the playback controls.
 
 ## Remove
 
